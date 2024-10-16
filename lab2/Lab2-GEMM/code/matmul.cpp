@@ -91,7 +91,7 @@ void matmulWriteCaching() {
 
 void matmulTiled() {
   memset(C, 0, sizeof(C));
-  int tile_size = 16; // Define the tile size
+  int tile_size = 8; // Define the tile size
 
   for (int ii = 0; ii < n; ii += tile_size) {
     for (int jj = 0; jj < n; jj += tile_size) {
@@ -210,8 +210,125 @@ void matmul_BT() {
   }
 }
 
-/*
-void matmul_BT() {
+void matmul_BTUnroll() {
+  memset(C, 0, sizeof(C));
+  for (int i = 0; i < n; i++) {
+    for (int j = 0; j < n; j++) {
+      BT[i][j] = B[j][i];
+    }
+  }
+  int unroll_factor = 4; // Unrolling by a factor of 4
+  for (int i = 0; i < n; i++) {
+    for (int j = 0; j < n; j++) {
+      for (int k = 0; k <= n - unroll_factor; k += unroll_factor) {
+        C[i][j] += A[i][k] * BT[j][k];
+        C[i][j] += A[i][k + 1] * BT[j][k + 1];
+        C[i][j] += A[i][k + 2] * BT[j][k + 2];
+        C[i][j] += A[i][k + 3] * BT[j][k + 3];
+      }
+      // Handle the remaining elements
+      for (int k = n - (n % unroll_factor); k < n; k++) {
+        C[i][j] += A[i][k] * BT[j][k];
+      }
+    }
+  }
+}
+
+void matmul_BTCache() {
+  memset(C, 0, sizeof(C));
+  for (int i = 0; i < n; i++) {
+    for (int j = 0; j < n; j++) {
+      BT[i][j] = B[j][i];
+    }
+  }
+  for (int i = 0; i < n; i++) {
+    for (int j = 0; j < n; j++) {
+      double temp = 0; // Cache for C[i][j]
+      for (int k = 0; k < n; k++) {
+        temp += A[i][k] * BT[j][k];    
+      }
+      C[i][j] = temp; // Write back the cached value
+    }
+  }
+}
+
+void matmul_BTTiling() {
+  memset(C, 0, sizeof(C));
+  for (int i = 0; i < n; i++) {
+    for (int j = 0; j < n; j++) {
+      BT[i][j] = B[j][i];
+    }
+  }
+
+  int tile_size = 32; // Define the tile size
+
+  for (int ii = 0; ii < n; ii += tile_size) {
+    for (int jj = 0; jj < n; jj += tile_size) {
+      for (int kk = 0; kk < n; kk += tile_size) {
+        // Perform multiplication on the tiles
+        for (int i = ii; i < ii + tile_size && i < n; i++) {
+          for (int j = jj; j < jj + tile_size && j < n; j++) {
+            double temp = 0; // Cache for C[i][j]
+            for (int k = kk; k < kk + tile_size && k < n; k++) {
+              temp += A[i][k] * BT[j][k];
+            }
+            C[i][j] += temp; // Write back the cached value
+          }
+        }
+      }
+    }
+  }
+}
+
+void matmul_BTPacking() {
+  memset(C, 0, sizeof(C));
+  
+  // Transpose B into BT
+  for (int i = 0; i < n; i++) {
+    for (int j = 0; j < n; j++) {
+      BT[i][j] = B[j][i];
+    }
+  }
+
+  const int blockSize = 32; // Define the block size
+
+  // Allocate packed arrays
+  double packedA[blockSize][blockSize];
+  double packedBT[blockSize][blockSize];
+
+  for (int ii = 0; ii < n; ii += blockSize) {
+    for (int jj = 0; jj < n; jj += blockSize) {
+      for (int kk = 0; kk < n; kk += blockSize) {
+
+        // Pack blocks of A and BT
+        for (int i = 0; i < blockSize; i++) {
+          for (int k = 0; k < blockSize; k++) {
+            packedA[i][k] = A[ii + i][kk + k];
+          }
+        }
+        for (int j = 0; j < blockSize; j++) {
+          for (int k = 0; k < blockSize; k++) {
+            packedBT[j][k] = BT[jj + j][kk + k];
+          }
+        }
+
+        // Perform multiplication on packed blocks
+        for (int i = 0; i < blockSize; i++) {
+          for (int j = 0; j < blockSize; j++) {
+            double temp = 0;
+            for (int k = 0; k < blockSize; k++) {
+              temp += packedA[i][k] * packedBT[j][k];
+            }
+            C[ii + i][jj + j] += temp;
+          }
+        }
+      }
+    }
+  }
+}
+
+
+void matmul_BT1() {
   constexpr int blockSize = 128; // 假設 blockSize 是 64，可以根據實際情況調整
   memset(C, 0, sizeof(C));
   
@@ -240,7 +357,7 @@ void matmul_BT() {
   }
 }
 
-void matmul_BT() {
+void matmul_BT2() {
   for (int i = 0; i < n; i++) {
     for (int j = 0; j < n; j++) {
       BT[i][j] = B[j][i];
@@ -267,8 +384,8 @@ void matmul_BT() {
   }
 }
 
-void matmul_BT() {
-  constexpr int blockSize = 64; // 假設 blockSize 是 64，可以根據實際情況調整
+void matmul_BT3() {
+  constexpr int blockSize = 128; // 假設 blockSize 是 64，可以根據實際情況調整
   memset(C, 0, sizeof(C));
   
   // 轉置矩陣 B
@@ -290,6 +407,7 @@ void matmul_BT() {
               sum1 += A[i][k + 1] * BT[j][k + 1];
               sum2 += A[i][k + 2] * BT[j][k + 2];
               sum3 += A[i][k + 3] * BT[j][k + 3];
+              
             }
             C[i][j] += sum0 + sum1 + sum2 + sum3;
           }
@@ -298,22 +416,29 @@ void matmul_BT() {
     }
   }
 }
-*/
+
 
 int main() {
   init();
   float avg_time = 0.0f;
   for (int K = 0; K < 32; K++) {
     auto t = get_time();
-    matmul();
-    matmulUnrolled();
-    matmulWriteCaching();
-    matmulTiled();
+    //matmul();
+    //matmulUnrolled();
+    //matmulWriteCaching();
+    //matmulTiled();
     //matmulVector();
-    matmulPacked();
+    //matmulPacked();
     //matmul_ikj();
     //matmul_AT();
     //matmul_BT();
+    //matmul_BTUnroll();
+    //matmul_BTCache();
+    //matmul_BTTiling();
+    //matmul_BTPacking();
+    //matmul_BT1();
+    //matmul_BT2();
+    matmul_BT3();
     printf("%f\n", get_time() - t);
     avg_time += get_time() - t;
     test();
